@@ -1,3 +1,7 @@
+//------------------------------------------------------------------------------
+// <YOUR_FULL_NAME_HERE>
+//------------------------------------------------------------------------------
+
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.spark.sql.SparkSession
