@@ -45,7 +45,9 @@ object FourHops {
     This function counts the number of distinct nodes in the input graph. Since each node 
     has atleast degree 1, it should appear in some pair (v1, v2).
     */
-    def countVertices(graph: GRAPH): Int =  ???
+    def countVertices(graph: GRAPH): Int = {
+        graph.flatMap{case (v1, v2) => List(v1,v2)}.distinct().count().toInt
+    }
 //------------------------------------------------------------------------------
 //  MapReduce
 //------------------------------------------------------------------------------
@@ -60,7 +62,9 @@ object FourHops {
     
     Identifying index helps multiply correct elements of A and B.
     */
-    def mmMapper(N: Int, index: (Int, Int)): List[((Int, Int), (Int, Int))] = ???
+    def mmMapper(N: Int, index: (Int, Int)): List[((Int, Int), (Int, Int))] ={
+        (1 to N).toList.map(k => ((index._1, k),(1, index._2))) ++ (1 to N).toList.map(k => ((k, index._2),(0, index._1)))
+    }
 
 //------------------------------------------------------------------------------
 
@@ -72,7 +76,12 @@ object FourHops {
     It must now produce the matrix product value (i, j, value). Set the value to 1 if it is 
     greater than 0 else let it be 0. Refer to test3 and test4 for an example case.
     */
-    def mmReducer(productElements: ((Int, Int), Iterable[(Int, Int)])): (Int, Int, Int) = ???
+    def mmReducer(productElements: ((Int, Int), Iterable[(Int, Int)])): (Int, Int, Int) = {
+        val (i,j) = productElements._1
+        val nodes = productElements._2.map(_._2).toList
+        if (nodes.diff(nodes.distinct).size > 0) (i ,j, 1) else (i, j, 0)
+    }
+ 
 //------------------------------------------------------------------------------    
     
     /*
