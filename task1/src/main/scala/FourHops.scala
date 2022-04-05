@@ -62,8 +62,8 @@ object FourHops {
     
     Identifying index helps multiply correct elements of A and B.
     */
-    def mmMapper(N: Int, index: (Int, Int)): List[((Int, Int), (Int, Int))] ={
-        (1 to N).toList.map(k => ((index._1, k),(1, index._2))) ++ (1 to N).toList.map(k => ((k, index._2),(0, index._1)))
+    def mmMapper(N: Int, index: (Int, Int)): List[((Int, Int), (Int, Int))] = {
+        (0 to N - 1).toList.map(k => ((index._1, k),(1, index._2))) ++ (0 to N - 1).toList.map(k => ((k, index._2),(0, index._1)))
     }
 
 //------------------------------------------------------------------------------
@@ -96,7 +96,12 @@ object FourHops {
 
     Note that this is sufficient for our goal of identifying all 4-hop neighbors of a node. 
     */
-    def matrixMultiply(matrix: GRAPH, N: Int): GRAPH = ???
+    def matrixMultiply(matrix: GRAPH, N: Int): GRAPH = 
+        matrix.flatMap(edge => mmMapper(N, edge))
+                .groupByKey()
+                .map(mmReducer(_))
+                .filter(edge => edge._3 != 0)
+                .map(edge => (edge._1, edge._2))
 
 //------------------------------------------------------------------------------
 //  Auxiliary functions
