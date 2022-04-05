@@ -7,3 +7,5 @@
 **/.vscode
 **/target
 **/project
+**/.bloop
+**/.metals
