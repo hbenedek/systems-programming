@@ -23,6 +23,8 @@ object Task2 {
     val RETRIEVE_FAILURE = "RETRIEVE_FAILURE"
     val INTERNAL_ERROR = "INTERNAL_ERROR"
     val USER = "USER"
+    val REPLICATE = "REPLICATE"
+    val REPLICA_STORE_SUCCESS = "REPLICA_STORE_SUCCESS"
     val nodes_may_fail = 4
 
   def main(args: Array[String]) {

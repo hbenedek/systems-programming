@@ -3,6 +3,7 @@ package task2
 
 import scala.collection.mutable.Queue
 import scala.collection.mutable.Set
+import scala.util.Random
 
 class MyNode(id: String, memory: Int, neighbours: Vector[String], router: Router) extends Node(id, memory, neighbours, router) {
     val STORE = "STORE"
@@ -14,6 +15,8 @@ class MyNode(id: String, memory: Int, neighbours: Vector[String], router: Router
     val RETRIEVE_SUCCESS = "RETRIEVE_SUCCESS"
     val RETRIEVE_FAILURE = "RETRIEVE_FAILURE"
     val INTERNAL_ERROR = "INTERNAL_ERROR"
+    val REPLICATE = "REPLICATE"
+    val REPLICA_STORE_SUCCESS = "REPLICA_STORE_SUCCESS"
     val USER = "USER"
     val nodes_may_fail = 4
 
@@ -40,14 +43,18 @@ class MyNode(id: String, memory: Int, neighbours: Vector[String], router: Router
             value match {
                 case Some(i) => response = new Message(id, RETRIEVE_SUCCESS, i)
                 case None => response = new Message(id, RETRIEVE_FAILURE)
+                    //send RETRIEVE Message to all neighbours except 'from'
+                    var search : Message = new Message("", "", "")
+                    search = new Message(id, RETRIEVE, key)
+                    neighbours.filter(_ != from).map(n => router.sendMessage(id, n, search))
             }
             /*
              * TODO: task 2.1
              * Add retrieval algorithm to retrieve from the peers here
              * when the key isn't available on the HOST node.
              * Use router.sendMessage(from, to, message) to send a message to another node
-             */
-            ???
+             */         
+
 
             response // Return the correct response message
         }
@@ -62,11 +69,52 @@ class MyNode(id: String, memory: Int, neighbours: Vector[String], router: Router
              */
             val data = message.data.split("->") // data(0) is key, data(1) is value
             val storedOnSelf = setKey(data(0), data(1)) // Store on current node
+
             if (storedOnSelf) {
+                //send REPLICATE request to random neigbour with the number of replica we want to make
+                //message format (key1->value1:number) 
+                var replica: Message = new Message("", "", "")
+                replica = new Message(id, REPLICATE, message.data.concat(":").concat((nodes_may_fail - 1).toString))
+
+                val gossip = Random.shuffle(neighbours).head
+                router.sendMessage(id, gossip, replica)
+
+                // communicate successful query
                 new Message(id, STORE_SUCCESS)
+            } 
+            else{
+                //if no memory, send STORE request to random neighbour 
+                var store : Message = new Message("", "", "")
+                store = new Message(id, STORE, message.data)
+
+                val gossip = Random.shuffle(neighbours).head
+                router.sendMessage(id, gossip, store)
             }
-            else {
-                new Message(id, STORE_FAILURE)
+        }
+        else if (message.messageType == REPLICATE) { // Request to replicate key->value 
+            val splitted = message.data.split(":")
+            val (kv, num_replicas_left) = (splitted(0), splitted(1).toInt)
+            val data = kv.split("->")
+            val alreadyStored = getKey(data(0))
+            val storedOnSelf = setKey(data(0), data(1))
+            if (storedOnSelf && (alreadyStored == None)){
+                if (num_replicas_left > 0){
+                    var replica: Message = new Message("", "", "")
+                    replica = new Message(id, REPLICATE, kv.concat(":").concat((num_replicas_left - 1).toString))
+
+                    val gossip = Random.shuffle(neighbours).head
+                    router.sendMessage(id, gossip, replica)
+                }
+                 // communicate successful query
+                new Message(id, REPLICA_STORE_SUCCESS)
+            }
+            else{
+                //if no memory, send REPLICATE request to random neighbour 
+                var replica : Message = new Message("", "", "")
+                replica = new Message(id, REPLICATE, message.data)
+
+                val gossip = Random.shuffle(neighbours).head
+                router.sendMessage(id, gossip, replica)
             }
         }
         /*
