@@ -21,6 +21,7 @@ object Task2 {
     val NEIGHBOURS_RESPONSE = "NEIGHBOURS_RESPONSE"
     val RETRIEVE_SUCCESS = "RETRIEVE_SUCCESS"
     val RETRIEVE_FAILURE = "RETRIEVE_FAILURE"
+    val SIMPLE_RETRIEVE  = "SIMPLE_RETRIEVE"
     val INTERNAL_ERROR = "INTERNAL_ERROR"
     val USER = "USER"
     val REPLICATE = "REPLICATE"
@@ -50,8 +51,9 @@ object Task2 {
     m = router.sendMessage(USER, "u2", new Message(USER, RETRIEVE, "key1")) // Retrieve key
     println(m.messageType + " " + m.data)
 
-    m = router.sendMessage(USER, "u3", new Message(USER, RETRIEVE, "key1")) // Retrieve from another node
+    m = router.sendMessage(USER, "u7", new Message(USER, RETRIEVE, "key1")) // Retrieve from another node
     println(m.messageType + " " + m.data)
+  
 
     /* Check the correctness of the store. The stored keys should be present in at least one node */
     println(routerInfo("u1").returnStore)
@@ -81,8 +83,5 @@ object Task2 {
     println(routerInfo("u6").returnStore)
     println(routerInfo("u7").returnStore)
     println(routerInfo("u8").returnStore)
-
-
-
   }
 }
