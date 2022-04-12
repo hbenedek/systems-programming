@@ -21,22 +21,6 @@ class MyNode(id: String, memory: Int, neighbours: Vector[String], router: Router
     val USER = "USER"
     val nodes_may_fail = 4
 
-    // helper function for RETRIEVE, returns all nodes in the graph
-    def getAllNodes(): List[String] ={
-        var explored: List[String] = List()
-        var visited: Queue[String] = Queue(this.id)
-        while (!visited.isEmpty){
-            var v = visited.dequeue()
-            router.sendMessage(this.id, v, new Message(this.id, GET_NEIGHBOURS, ""))
-                    .data.split(" ")
-                    .filter(n => !explored.contains(n))
-                    .map(n => visited.enqueue(n))
-            explored = explored :+ v
-        }
-        explored.toList
-    }
-
-
     override def onReceive(from: String, message: Message): Message = {
         /* 
          * Called when the node receives a message from some where
@@ -54,40 +38,47 @@ class MyNode(id: String, memory: Int, neighbours: Vector[String], router: Router
             val key = message.data 
             val value = getKey(key)
             value match {
-                case Some(i) => new Message(id, RETRIEVE_SUCCESS, i)
-                case None => new Message(id, RETRIEVE_FAILURE)
+                case Some(i) => new Message(message.source, RETRIEVE_SUCCESS, i)
+                case None => new Message(message.source, RETRIEVE_FAILURE)
             } 
         }
         else if (message.messageType == GET_NEIGHBOURS) { // Request to get the list of neighbours
             new Message(id, NEIGHBOURS_RESPONSE, neighbours.mkString(" "))
         }
         else if (message.messageType == RETRIEVE) { // Request to get the value
-            val key = message.data // This is the key
-            val value = getKey(key) // Check if the key is present on the node
-            var response : Message = new Message("", "", "")
-            value match {
-                case Some(i) => response = new Message(id, RETRIEVE_SUCCESS, i)
-                case None => 
-                    //send SIMPLE_RETRIEVE message to all nodes if target node did not have the key
-                    val nodes = getAllNodes()
-                    // gather responses from nodes, if we have a success we respond that value
-                    val success = nodes.map(n => router.sendMessage(id, n, new Message(id, SIMPLE_RETRIEVE, key)))
-                                        .filter(_.messageType == RETRIEVE_SUCCESS)
-                    if (success.size > 0){
-                        response = new Message(id, RETRIEVE_SUCCESS, success.head.data)
-                    }
-                    else{
-                        response = new Message(id, RETRIEVE_FAILURE)
-                    } 
-                    }
             /*
-             * TODO: task 2.1
-             * Add retrieval algorithm to retrieve from the peers here
-             * when the key isn't available on the HOST node.
-             * Use router.sendMessage(from, to, message) to send a message to another node
-             */         
-
-            response // Return the correct response message
+            * TODO: task 2.1
+            * Add retrieval algorithm to retrieve from the peers here
+            * when the key isn't available on the HOST node.
+            * Use router.sendMessage(from, to, message) to send a message to another node
+            */         
+            val key = message.data 
+            var response : Message = new Message("", "", "")
+            // store nodes that we already queried and don't contain key
+            var explored: List[String] = List()
+            // store new unprocessed nodes
+            var visited: Queue[String] = Queue(id)
+            var isDone = false 
+            while (!(visited.isEmpty || isDone)){
+                // query SIMPLE RETRIEVE from unprocessed node
+                var v = visited.dequeue()
+                response = router.sendMessage(id, v, new Message(id, SIMPLE_RETRIEVE, key))
+                if (response.messageType == RETRIEVE_SUCCESS){
+                    // if we found the key we terminate our loop and return the value with SUCCESS response
+                    isDone = true
+                }
+                 else{
+                    // if node does not contain key, we query its neighbours and store unprocessed nodes in 'visited' list
+                    router.sendMessage(id, v, new Message(id, GET_NEIGHBOURS, ""))
+                        .data.split(" ")
+                        .filter(n => !explored.contains(n))
+                        .map(n => visited.enqueue(n))
+                    // update already explored nodes
+                    explored = explored :+ v
+                }
+            }
+            //Return the correct response message
+            response
         }
         else if (message.messageType == STORE) { // Request to store key->value
             /*
@@ -131,21 +122,15 @@ class MyNode(id: String, memory: Int, neighbours: Vector[String], router: Router
             if (storedOnSelf && (alreadyStored == None)){
                 if (num_replicas_left > 0){
                     var replica: Message = new Message("", "", "")
-                    replica = new Message(id, REPLICATE, kv.concat(":").concat((num_replicas_left - 1).toString))
-
-                    val gossip = Random.shuffle(neighbours).head
-                    router.sendMessage(id, gossip, replica)
+                    replica = new Message(message.source, REPLICATE, kv.concat(":").concat((num_replicas_left - 1).toString))
+                    router.sendMessage(id, Random.shuffle(neighbours).head, replica)
                 }
-                 // communicate successful query
+                // communicate successful query
                 new Message(id, REPLICA_STORE_SUCCESS)
             }
             else{
                 //if no memory, send REPLICATE request to random neighbour 
-                var replica : Message = new Message("", "", "")
-                replica = new Message(id, REPLICATE, message.data)
-
-                val gossip = Random.shuffle(neighbours).head
-                router.sendMessage(id, gossip, replica)
+                router.sendMessage(id, Random.shuffle(neighbours).head, message)
             }
         }
         /*
